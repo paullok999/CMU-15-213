@@ -143,7 +143,8 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  //Use DeMorgan's law to simplify the logical expression
+  return ~(~(x & ~y) & ~(~x & y));
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -152,9 +153,8 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-
-  return 2;
-
+  //Let the highest bit be one,other be zero
+  return 1 << 31;
 }
 //2
 /*
@@ -165,18 +165,27 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+  int isZero = !(~(x ^ (x + 1)));
+  int isNegOne = !(x + 1);
+  return isZero & !isNegOne;
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
- *   where bits are numbered from 0 (least significant) to 31 (most significant)
+ *   where bits are numbered 
+ *   from 0 (least significant) to 31 (most significant)
  *   Examples allOddBits(0xFFFFFFFD) = 0, allOddBits(0xAAAAAAAA) = 1
  *   Legal ops: ! ~ & ^ | + << >>
  *   Max ops: 12
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  //if all odd-numbered bits in word set to 1
+  //Then its bit pattern must be centrosymmetric
+  int x_low_16 = x & (x >> 16);
+  int x_low_8 = x_low_16 & (x_low_16 >> 8);
+  int x_low_4 = x_low_8 & (x_low_8 >> 4);
+  int x_low_2 = x_low_4 & (x_low_4 >> 2);
+  return (x_low_2 >> 1) & 1;
 }
 /* 
  * negate - return -x 
@@ -186,7 +195,8 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  //Invert the digits,add one to the last
+  return ~x + 1;
 }
 //3
 /* 
@@ -199,7 +209,13 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  //Extract the lower eight bit of x
+  //According to the ASCII definition,using bit operation to judge
+  int x_low_4 = x & 0x0F;
+  int is_high_24_equal_0 = !(x >> 8);
+  int is_high_4_equal_3 = !((x & 0xF0) ^ 0x30);
+  int is_low_4_beyond_9 = (x_low_4 >> 3) & !!(x_low_4 & 0x06);
+  return is_high_24_equal_0 & is_high_4_equal_3 & !is_low_4_beyond_9;
 }
 /* 
  * conditional - same as x ? y : z 
@@ -209,7 +225,12 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  //Construct a mask to implement conditional branch
+  //x == 0,mask = 0xFFFFFFFF,x != 0,mask = 0
+  int mask = !!x + ~0;
+  int branch_a = ~mask & y;
+  int branch_b = mask & z;
+  return branch_a | branch_b;
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -219,7 +240,13 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+  //Classification is discussed according to the sign bits of x and y
+  int sign_x = (x >> 31) & 1;
+  int sign_y = (y >> 31) & 1;
+  int sign_x_sub_y = ((x + (~y + 1)) >> 31) & 1;
+  int is_less = (!(sign_x ^ sign_y) & sign_x_sub_y) | (!(sign_x ^ 1) & !(sign_y ^ 0));
+  int is_equal = !(x ^ y);
+  return is_less | is_equal;
 }
 //4
 /* 
@@ -231,7 +258,14 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  //If the binary of x contains at least one 1
+  //then return 0,otherwise return 1
+  int y = ~x;
+  y = y & (y >> 16);
+  y = y & (y >> 8);
+  y = y & (y >> 4);
+  y = y & (y >> 2);
+  return y & ((y >> 1) & 1);
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -246,7 +280,37 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  //Take the reverse code of x
+  //then find the highest one
+  int x32 = x ^ (x >> 31);
+
+  int x_high_16 = x32 >> 16;
+  int mask16 = !!x_high_16 + ~0;
+  int ans16 = ~mask16 & 16;
+  int x16 = (~mask16 & x_high_16) | (mask16 & x32);
+
+  int x_high_8 = x16 >> 8;
+  int mask8 = !!x_high_8 + ~0;
+  int ans8 = ~mask8 & 8;
+  int x8 = (~mask8 & x_high_8) | (mask8 & x16);
+
+
+  int x_high_4 = x8 >> 4;
+  int mask4 = !!x_high_4 + ~0;
+  int ans4 = ~mask4 & 4;
+  int x4 = (~mask4 & x_high_4) | (mask4 & x8);
+
+
+  int x_high_2 = x4 >> 2;
+  int mask2 = !!x_high_2 + ~0;
+  int ans2 = ~mask2 & 2;
+  int x2 = (~mask2 & x_high_2) | (mask2 & x4);
+
+  int x_high_1 = x2 >> 1;
+  int mask1 = !!x_high_1 + ~0;
+  int ans1 = ~mask1 & 1;
+  int x0 = (~mask1 & x_high_1) | (mask1 & x2);
+  return ans16 + ans8 + ans4 + ans2 + ans1 + x0 + 1;
 }
 //float
 /* 
@@ -261,7 +325,22 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+  unsigned sign = (uf >> 31) & 1;
+  unsigned frac = uf & ((1 << 23) - 1);
+  unsigned exp = (uf >> 23) & ((1 << 8) - 1);
+  if(uf == 0)return 0;
+  if(exp == 0xFF){
+    return uf;
+  }
+  if(exp == 0){
+    if(frac == 0){
+      return uf;
+    }else{
+      return (sign << 31) | (frac << 1);
+    }
+  }
+  exp += 1;
+  return (sign << 31) | (exp << 23) | frac;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -276,7 +355,19 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+  unsigned sign = (uf >> 31) & 1;
+  unsigned frac = uf & ((1 << 23) - 1);
+  int exp = (uf >> 23) & ((1 << 8) - 1);
+  int mantissa = (1 << 23) | frac;
+  exp -= 127;
+  if(exp < 0)return 0;
+  if(exp >= 31)return 0x80000000;
+  if(exp > 23){
+    mantissa <<= (exp - 23);
+  }else{
+    mantissa >>= (23 - exp);
+  }
+  return (sign ^ (mantissa >> 31)) ? ~mantissa + 1 : mantissa;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -292,5 +383,16 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    int bias = 127;
+    unsigned exp = x + bias;
+    if(x + bias <= 0){
+      //denorm
+      return 0;
+    }
+    if(exp >= 0xFF){
+      //return +INF
+      return 0x7F800000;
+    }
+    //norm
+    return exp << 23;
 }
